@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dev Intake Bot</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+
+  .container { width: 100%; max-width: 720px; }
+
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    color: #f8fafc;
+  }
+  .subtitle { font-size: 0.85rem; color: #64748b; margin-bottom: 1.5rem; }
+
+  .api-row {
+    display: flex; gap: 0.5rem; margin-bottom: 1.25rem;
+  }
+  .api-row input {
+    flex: 1;
+    background: #1e2432;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    outline: none;
+  }
+  .api-row input:focus { border-color: #6366f1; }
+  .api-row button {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .api-row button:hover { background: #4f46e5; }
+
+  #chat {
+    background: #1e2432;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1rem;
+    min-height: 320px;
+    max-height: 480px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .msg .label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+  }
+  .msg.user .label { color: #818cf8; }
+  .msg.bot  .label { color: #34d399; }
+  .msg .bubble {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .judgment-card {
+    background: #0f2a1e;
+    border: 1px solid #14532d;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+  .judgment-card h2 {
+    font-size: 0.95rem;
+    color: #4ade80;
+    margin-bottom: 0.75rem;
+  }
+  .judgment-card .field { margin-bottom: 0.35rem; }
+  .judgment-card .field .key { color: #94a3b8; font-size: 0.8rem; }
+  .judgment-card ul { list-style: none; padding-left: 0.5rem; margin-top: 0.25rem; }
+  .judgment-card ul li::before { content: "› "; color: #4ade80; }
+  .feasibility-high   { color: #4ade80; font-weight: 700; }
+  .feasibility-medium { color: #fbbf24; font-weight: 700; }
+  .feasibility-low    { color: #f87171; font-weight: 700; }
+
+  .input-row {
+    display: flex; gap: 0.5rem;
+  }
+  #userInput {
+    flex: 1;
+    background: #1e2432;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    outline: none;
+    resize: none;
+    min-height: 44px;
+    max-height: 120px;
+  }
+  #userInput:focus { border-color: #6366f1; }
+  #sendBtn {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0 1.25rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+    align-self: flex-end;
+    height: 44px;
+  }
+  #sendBtn:disabled { background: #334155; cursor: default; }
+  #sendBtn:not(:disabled):hover { background: #4f46e5; }
+
+  .hint { font-size: 0.75rem; color: #475569; margin-top: 0.6rem; }
+
+  #status {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 0.4rem;
+    min-height: 1.1em;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Dev Intake Bot 🤖</h1>
+  <p class="subtitle">開発要望をヒアリングして実装判断を出力します</p>
+
+  <div class="api-row">
+    <input type="password" id="apiKey" placeholder="Anthropic API Key (sk-ant-...)">
+    <button onclick="saveKey()">保存</button>
+  </div>
+
+  <div id="chat">
+    <div class="msg bot">
+      <span class="label">Bot</span>
+      <span class="bubble">開発したいもの・改善したいことを教えてください。</span>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <textarea id="userInput" placeholder="例: 社内の勤怠申請フォームをSlackから操作できるようにしたい" rows="1"></textarea>
+    <button id="sendBtn" onclick="send()">送信</button>
+  </div>
+  <div id="status"></div>
+  <p class="hint">API キーはブラウザのメモリにのみ保持されます。サーバーには送信されません。</p>
+</div>
+
+<script>
+const SYSTEM_PROMPT = `あなたは経験豊富なソフトウェアエンジニアリングコンサルタントです。
+ユーザーから開発要望を受け取り、実装判断に必要な情報をヒアリングします。
+
+## 役割
+1. ユーザーの開発要望を受け取る
+2. 実装判断に必要な情報を 1 問ずつヒアリングする（最大 4 ターン）
+3. 情報が揃ったら [READY_TO_JUDGE] マーカーを出力し、続けて JSON を出力する
+
+## ヒアリングで確認すること（優先順）
+- 技術スタック・既存システムの状況（フレームワーク、言語、インフラ）
+- Done の定義（どうなれば完了と言えるか）
+- デザイン・UI の制約（既存コンポーネントがあるか）
+- セキュリティ・権限の要件
+- 期日・優先度
+
+1 ターンに 1 つの質問だけ投げる。複数の質問を一度に投げない。
+
+## 出力タイミング
+「実装可否を判断するのに情報が揃った」と判断したら、
+ヒアリングを終了して以下の形式で出力する:
+
+[READY_TO_JUDGE]
+{
+  "feasibility": "high | medium | low",
+  "reason": "判断の根拠（1〜2文）",
+  "effort_min_days": 数値,
+  "effort_max_days": 数値,
+  "scope": ["スコープ項目1", "スコープ項目2"],
+  "out_of_scope": ["今回の対象外1"],
+  "prerequisites": ["前提条件1"],
+  "risks": ["リスク1"]
+}
+
+情報収集中は JSON を出力しない。ヒアリングだけ行う。`;
+
+const READY_MARKER = "[READY_TO_JUDGE]";
+let apiKey = "";
+let messages = [];
+let done = false;
+
+function saveKey() {
+  apiKey = document.getElementById("apiKey").value.trim();
+  document.getElementById("status").textContent = apiKey ? "✅ API キーを設定しました" : "API キーを入力してください";
+}
+
+function appendMsg(role, text) {
+  const chat = document.getElementById("chat");
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.innerHTML = `<span class="label">${role === "user" ? "あなた" : "Bot"}</span><span class="bubble">${escHtml(text)}</span>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function renderJudgment(j) {
+  const chat = document.getElementById("chat");
+  const labels = { high: "✅ 実装可能", medium: "⚠️ 条件付き可能", low: "❌ 要再検討" };
+  const cls = { high: "feasibility-high", medium: "feasibility-medium", low: "feasibility-low" };
+  const f = j.feasibility || "";
+  const lo = j.effort_min_days ?? "?";
+  const hi = j.effort_max_days ?? "?";
+
+  function list(arr, icon) {
+    if (!arr || !arr.length) return "";
+    return "<ul>" + arr.map(x => `<li>${escHtml(x)}</li>`).join("") + "</ul>";
+  }
+
+  const html = `
+<div class="judgment-card">
+  <h2>📋 実装判断レポート</h2>
+  <div class="field"><span class="key">実装可否</span><br><span class="${cls[f] || ''}">${escHtml(labels[f] || f)}</span></div>
+  <div class="field"><span class="key">根拠</span><br>${escHtml(j.reason || "")}</div>
+  <div class="field"><span class="key">推定工数</span><br>${lo}〜${hi} 日</div>
+  ${j.scope?.length ? `<div class="field"><span class="key">スコープ</span>${list(j.scope)}</div>` : ""}
+  ${j.out_of_scope?.length ? `<div class="field"><span class="key">今回の対象外</span>${list(j.out_of_scope)}</div>` : ""}
+  ${j.prerequisites?.length ? `<div class="field"><span class="key">前提条件</span>${list(j.prerequisites)}</div>` : ""}
+  ${j.risks?.length ? `<div class="field"><span class="key">リスク</span>${list(j.risks)}</div>` : ""}
+</div>`;
+
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = html;
+  chat.appendChild(wrapper);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function send() {
+  if (done) return;
+  if (!apiKey) { document.getElementById("status").textContent = "API キーを入力してください"; return; }
+
+  const textarea = document.getElementById("userInput");
+  const text = textarea.value.trim();
+  if (!text) return;
+
+  textarea.value = "";
+  textarea.style.height = "auto";
+  document.getElementById("sendBtn").disabled = true;
+  document.getElementById("status").textContent = "考え中…";
+
+  appendMsg("user", text);
+  messages.push({ role: "user", content: text });
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const assistantText = data.content[0].text;
+    messages.push({ role: "assistant", content: assistantText });
+
+    if (assistantText.includes(READY_MARKER)) {
+      const preText = assistantText.slice(0, assistantText.indexOf(READY_MARKER)).trim();
+      if (preText) appendMsg("bot", preText);
+
+      const rawJson = assistantText.slice(assistantText.indexOf(READY_MARKER) + READY_MARKER.length).trim();
+      let clean = rawJson;
+      if (clean.startsWith("```")) {
+        clean = clean.split("```")[1];
+        if (clean.startsWith("json")) clean = clean.slice(4);
+      }
+      try {
+        renderJudgment(JSON.parse(clean.trim()));
+      } catch {
+        appendMsg("bot", rawJson);
+      }
+      done = true;
+      document.getElementById("status").textContent = "ヒアリング完了 🎉";
+      document.getElementById("userInput").disabled = true;
+      document.getElementById("sendBtn").disabled = true;
+    } else {
+      appendMsg("bot", assistantText);
+      document.getElementById("sendBtn").disabled = false;
+      document.getElementById("status").textContent = "";
+      document.getElementById("userInput").focus();
+    }
+  } catch (e) {
+    document.getElementById("status").textContent = "エラー: " + e.message;
+    document.getElementById("sendBtn").disabled = false;
+  }
+}
+
+document.getElementById("userInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+});
+document.getElementById("userInput").addEventListener("input", function() {
+  this.style.height = "auto";
+  this.style.height = Math.min(this.scrollHeight, 120) + "px";
+});
+
+// API キーをセッションストレージから復元
+const stored = sessionStorage.getItem("anthropic_api_key");
+if (stored) {
+  document.getElementById("apiKey").value = stored;
+  apiKey = stored;
+}
+document.getElementById("apiKey").addEventListener("change", () => {
+  sessionStorage.setItem("anthropic_api_key", document.getElementById("apiKey").value.trim());
+});
+</script>
+</body>
+</html>
