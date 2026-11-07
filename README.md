@@ -59,6 +59,10 @@ API キーを設定せずに CLI 版を起動すると、API を呼ぶ前に次�
 └── bot.py       # CLI 版(Python スクリプト)
 ```
 
+## 記事
+
+https://zenn.dev/liatris/articles/20260716-dev-intake-bot
+
 ## ライセンス
 
 MIT
